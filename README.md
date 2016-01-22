@@ -14,7 +14,7 @@ DNS service.
 ## Requirements
 
 * npm (1.3.10)
-  * `npm install coffee-script` (1.8.0)
+  * `npm install coffee-script` (1.9.0)
   * `npm install casperjs` (1.1.0-beta3)
 
 *All versions are those in use at the time of writing. Other versions may also
@@ -56,7 +56,7 @@ following:
     [ -z "$public_ip" ] && echo "No public IP!" && exit 1
 
     if [ "$public_ip" != "$current_ip" ]; then
-        echo "$public_ip (public) => $current_ip (current)"
+        echo "[current $current_ip] <= [public $public_ip]"
         casperjs --ssl-protocol=tlsv1 $HOME/src/regdomdns/regdomdns.js \
             $regdom_user $regdom_pass $hostname $public_ip
     fi

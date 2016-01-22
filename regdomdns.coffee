@@ -1,50 +1,71 @@
-casper = require('casper').create()
-system = require 'system'
+casper = require('casper').create viewportSize: { width: 1280, height: 720 }
+args = require('system').args
 
-if system.args.length != 8
-    casper.echo "Usage: #{system.args[3]} <username> <password> <hostname> <ip>"
-    casper.exit()
+if args.length != 8
+  casper.echo "Usage: #{args[3]} <username> <password> <hostname> <ip>"
+  casper.exit()
 
-username = system.args[4]
-password = system.args[5]
-host = system.args[6].split('.', 1)[0]
-domain = system.args[6].slice 1 + host.length
-ip = system.args[7]
-ipfield = undefined
+username = args[4]
+password = args[5]
+host = args[6].split('.', 1)[0]
+domain = args[6].slice 1 + host.length
+ip = args[7]
 
+DEBUG = false
 BASE_URL = 'https://www.registerdomain.co.za'
-LOGIN_FORM_ACTION = BASE_URL + '/dologin.php'
-
-findIpField = (hostname) ->
-    elem = document.querySelector "input[value='#{hostname}']"
-    elem.name.replace /\[name\]$/, ''
-
-setField = (fieldname, value) ->
-    inputs = document.querySelectorAll 'input[type="text"]'
-    elem.value = value for elem in inputs when elem.name == fieldname
-    document.querySelector('form').submit()
+LOGIN_FORM_ACTION = "#{BASE_URL}/dologin.php"
 
 
-casper.start BASE_URL + "/clientarea.php", ->
-    @echo "[*] Logging into RegisterDomain..."
-    @fill "form[action='" + LOGIN_FORM_ACTION + "']", {username: username, password: password}, true
+casper.start "#{BASE_URL}/clientarea.php", ->
+  @echo "[*] Logging into RegisterDomain..." if DEBUG
+  @fill "form[action='#{LOGIN_FORM_ACTION}']",
+    {username: username, password: password},
+    true
 
 casper.then ->
-    @echo '[*] Logged in'
-    @open BASE_URL + "/clientarea.php?managedns=#{domain}"
+  @echo "[*] Logged in as #{username}" if DEBUG
+
+casper.thenOpen "#{BASE_URL}/index.php?m=DNSManager2"
+
+casper.thenClick "a[href*='#{domain}'] + .list-actions
+  a[data-original-title='Edit Zone']"
 
 casper.then ->
-    @echo "[*] Loaded 'Manage DNS' page for #{domain}"
-    ipfield = @evaluate findIpField, host
+  elName = @evaluate (hostname) ->
+    hostEl = document.querySelector "input[value^='#{hostname}.']"
+    recEl = hostEl.parentElement.parentElement
+    recEl.querySelector('td[data-label="RDATA"] input').name
+  , host
+  @sendKeys "input[name='#{elName}']", ip, reset: true
 
-casper.then ->
-    @echo "[*] Updating IP address of host #{host}.#{domain} to #{ip}"
-    @evaluate setField, ipfield + "[value]", ip
+  if DEBUG
+    @capture 'filledin.png'
 
-casper.then ->
-    @echo "[*] Logging out..."
-    @open BASE_URL + '/logout.php'
+casper.thenClick 'button[data-act="editZoneSave"]', ->
+  @capture 'buttonclicked.png' if DEBUG
+  @echo "[*] Updating IP address of host #{host}.#{domain} to #{ip}"
+
+casper.waitForSelector '#MGAlerts > div[data-time] .alert', ->
+  @capture 'changessaved.png' if DEBUG
+  newIp = @evaluate (hostname) ->
+    hostEl = document.querySelector "input[value^='#{hostname}.']"
+    recEl = hostEl.parentElement.parentElement
+    rdataEl = recEl.querySelector 'td[data-label="RDATA"] input'
+    rdataEl.value
+  , host
+  msg = @evaluate ->
+    alertEl = document.querySelector '#MGAlerts > div[data-time] .alert'
+    successIdx = alertEl.getAttribute('class').indexOf 'success', 0
+    alertType = if successIdx >= 0 then 'success' else 'error'
+    alertMsg = alertEl.querySelector('strong').textContent
+    "#{alertMsg} [#{alertType}]"
+  @echo "[*] Response: #{msg}"
+  @echo "    New IP: #{newIp}"
+, null, 60000
+
+casper.thenOpen "#{BASE_URL}/logout.php", ->
+  @echo "[*] Logged out..." if DEBUG
 
 casper.run ->
-    @echo "[*] Done"
-    casper.exit()
+  @echo "[*] Done"
+  @exit()

@@ -43,20 +43,22 @@ create new ones.
 This script could be called from a (cron jobbed) shell script similar to the
 following:
 
-    #!/bin/bash
+```bash
+#!/bin/bash
 
-    hostname=dynamic.mydomain.co.za
-    dnsserver=main.nameserver2.co.za
-    public_ip=$(lookup_my_public_ip.sh)
-    current_ip=$(dig +short $hostname @$dnsserver)
-    regdom_user="admin@mydomain.co.za"
-    regdom_pass="l3tmein"
+hostname=dynamic.mydomain.co.za
+dnsserver=main.nameserver2.co.za
+public_ip=$(lookup_my_public_ip.sh)
+current_ip=$(dig +short $hostname @$dnsserver)
+regdom_user="admin@mydomain.co.za"
+regdom_pass="l3tmein"
 
-    [ -z "$current_ip" ] && echo "No current IP!" && exit 1
-    [ -z "$public_ip" ] && echo "No public IP!" && exit 1
+[ -z "$current_ip" ] && echo "No current IP!" && exit 1
+[ -z "$public_ip" ] && echo "No public IP!" && exit 1
 
-    if [ "$public_ip" != "$current_ip" ]; then
-        echo "[current $current_ip] <= [public $public_ip]"
-        casperjs --ssl-protocol=tlsv1 $HOME/src/regdomdns/regdomdns.js \
-            $regdom_user $regdom_pass $hostname $public_ip
-    fi
+if [ "$public_ip" != "$current_ip" ]; then
+    echo "[current $current_ip] <= [public $public_ip]"
+    casperjs --ssl-protocol=tlsv1 $HOME/src/regdomdns/regdomdns.js \
+        $regdom_user $regdom_pass $hostname $public_ip
+fi
+```
